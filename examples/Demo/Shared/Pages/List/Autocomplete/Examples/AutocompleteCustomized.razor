@@ -1,4 +1,4 @@
-@inject DataSource Data
+﻿@inject DataSource Data
 
 <FluentAutocomplete Id="my-customized"
                     @ref="ContactList"
@@ -7,7 +7,8 @@
                     Placeholder="search"
                     OnOptionsSearch="@OnSearch"
                     MaximumSelectedOptions="3"
-                    OptionText="@(item => item.LastName)"
+                    KeepOpen="true"
+                    OptionText="@(item => item.FirstName)"
                     OptionStyle="min-height: 40px;"
                     @bind-SelectedOptions="@SelectedItems">
 

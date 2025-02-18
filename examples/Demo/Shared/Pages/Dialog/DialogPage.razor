@@ -2,6 +2,8 @@
 
 @using FluentUI.Demo.Shared.Pages.Dialog.Examples;
 
+<PageTitle>@App.PageTitle("Dialog")</PageTitle>
+
 <h1>Dialog</h1>
 
 <p>As defined by the <a href="https://www.w3.org/WAI/ARIA/apg/patterns/dialog_modal/" target="_blank" rel="noopener noreferrer">W3C</a>:</p>
@@ -62,17 +64,15 @@
     Dialogs are rendered by the <code>&lt;FluentDialogProvider /&gt;</code> component. This component needs to be added to the main layout of your application/site.
     You typically do this in the <code>MainLayout.razor</code> file at the end of the <code>&lt;main&gt;</code> section like this:
 </p>
-<p>
-    <strong>
-        For the Dialogs to work properly, the <code>&lt;FluentDialogProvider/&gt;</code> needs interactivity! <p>
-            <strong>
-                For the Dialogs to work properly, the <code>&lt;FluentDialogProvider/&gt;</code> needs interactivity! If you are using "per page" interactivity, make sure to add a <code>@@rendermode</code> to
-                either the provider itself of the component the provider is placed in.
-            </strong>
-        </p>Be sure to add a <code>@@rendermode</code> to
-        either the provider itself of the component the provider is placed in.
-    </strong>
-</p>
+<FluentMessageBar Style="margin-bottom: 1em;" Title="IMPORTANT:" Intent="@MessageIntent.Warning" AllowDismiss="false">
+    <p>
+        <strong>
+            For the Dialogs to work properly, the <code>&lt;FluentDialogProvider/&gt;</code> needs interactivity! If you are using "per page" interactivity, make sure to add a <code>@@rendermode</code> to
+            either the provider itself or the component the provider is placed in.
+        </strong>
+    </p>
+</FluentMessageBar>
+
 <CodeSnippet>
     &lt;main&gt;
     &lt;nav&gt;
@@ -117,7 +117,9 @@
 <DemoSection Title="Editable Dialog" Component="@typeof(DialogEditableExample)" AdditionalFiles="@(new[] { "SimpleEditDialog.razor" })">
     <Description>
         <p>
-            This example shows how to open a Dialog containing editable fields.
+            This example shows how to open a Dialog containing editable fields. The first button uses the till now standard way of
+            doing that. The second button uses alternative code which offers a type safe way of using <code>IDialogContentComponent&lt;TContent&gt;</code><br />
+            This has been added in 4.11.4 and uses the new <code>DialogHelper</code> class. See the Razor tab and the <FluentAnchor Appearance="Appearance.Hypertext" Href="#dialoghelper-class">documentation</FluentAnchor> below on how this new method can be used.
         </p>
     </Description>
 </DemoSection>
@@ -208,3 +210,5 @@
 <ApiDocumentation Component="typeof(FluentDialogFooter)" />
 
 <ApiDocumentation Component="typeof(FluentDialogBody)" />
+
+<ApiDocumentation Component="typeof(DialogHelper)" />

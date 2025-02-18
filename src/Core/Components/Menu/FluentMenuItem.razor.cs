@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.FluentUI.AspNetCore.Components.Extensions;
 
 namespace Microsoft.FluentUI.AspNetCore.Components;
 
@@ -42,6 +43,12 @@ public partial class FluentMenuItem : FluentComponentBase, IDisposable
     public bool Checked { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicates whether the FluentMenu should remain open after an action.
+    /// </summary>
+    [Parameter]
+    public bool KeepOpen { get; set; }
+
+    /// <summary>
     /// Gets or sets the content to be rendered inside the component.
     /// </summary>
     [Parameter]
@@ -77,7 +84,7 @@ public partial class FluentMenuItem : FluentComponentBase, IDisposable
             return;
         }
 
-        if (Owner != null)
+        if (Owner != null && !KeepOpen)
         {
             await Owner.CloseAsync();
         }
