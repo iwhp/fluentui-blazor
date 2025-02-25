@@ -1,5 +1,10 @@
+// ------------------------------------------------------------------------
+// MIT License - Copyright (c) Microsoft Corporation. All rights reserved.
+// ------------------------------------------------------------------------
+
 using Microsoft.AspNetCore.Components;
 using Microsoft.AspNetCore.Components.Web;
+using Microsoft.FluentUI.AspNetCore.Components.Extensions;
 using Microsoft.FluentUI.AspNetCore.Components.Utilities;
 using Microsoft.JSInterop;
 
@@ -13,10 +18,14 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
 
     /// <summary />
     [Inject]
+    private LibraryConfiguration LibraryConfiguration { get; set; } = default!;
+
+    /// <summary />
+    [Inject]
     private IJSRuntime JSRuntime { get; set; } = default!;
 
     /// <summary />
-    private IJSObjectReference? Module { get; set; }
+    private IJSObjectReference? _jsModule { get; set; }
 
     private bool LoadingOverlay => Loading && IconStart == null && IconEnd == null;
 
@@ -28,6 +37,7 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
 
     /// <summary>
     /// Gets or sets the id of a form to associate the element to.
+    /// Both the <see cref="FluentComponentBase.Id"/> and the FormId must be set if the button is placed outside of a form.
     /// </summary>
     [Parameter]
     public string? FormId { get; set; }
@@ -147,6 +157,12 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
     public string? Title { get; set; }
 
     /// <summary>
+    /// Gets or sets a way to prevent further propagation of the current event in the capturing and bubbling phases.
+    /// </summary>
+    [Parameter]
+    public bool StopPropagation { get; set; } = false;
+
+    /// <summary>
     /// Gets or sets the content to be rendered inside the component.
     /// </summary>
     [Parameter]
@@ -180,8 +196,8 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
     {
         if (firstRender && Id is not null && Type != ButtonType.Button)
         {
-            Module ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", JAVASCRIPT_FILE);
-            await Module.InvokeVoidAsync("updateProxy", Id);
+            _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", JAVASCRIPT_FILE.FormatCollocatedUrl(LibraryConfiguration));
+            await _jsModule.InvokeVoidAsync("updateProxy", Id);
         }
     }
 
@@ -189,7 +205,7 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
     protected virtual MarkupString CustomStyle => new InlineStyleBuilder()
         .AddStyle($"#{Id}::part(control)", "background", $"padding-box linear-gradient({BackgroundColor}, {BackgroundColor}), border-box {BackgroundColor}", when: !string.IsNullOrEmpty(BackgroundColor))
         .AddStyle($"#{Id}::part(control)", "color", $"{Color}", when: !string.IsNullOrEmpty(Color))
-        .AddStyle($"#{Id}::part(control):hover", "opacity", "0.8", when: !string.IsNullOrEmpty(Color) || !string.IsNullOrEmpty(BackgroundColor))
+        .AddStyle($"#{Id}::part(control):not(:disabled):hover", "opacity", "0.8", when: !string.IsNullOrEmpty(Color) || !string.IsNullOrEmpty(BackgroundColor))
         .BuildMarkupString();
 
     /// <summary>
@@ -233,12 +249,20 @@ public partial class FluentButton : FluentComponentBase, IAsyncDisposable
 
         return $"width: {size}px; height: {size}px;{inverse}";
     }
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (Module is not null)
+        try
         {
-            return Module.DisposeAsync();
+            if (_jsModule is not null)
+            {
+                await _jsModule.DisposeAsync();
+            }
         }
-        return ValueTask.CompletedTask;
+        catch (Exception ex) when (ex is JSDisconnectedException ||
+                                   ex is OperationCanceledException)
+        {
+            // The JSRuntime side may routinely be gone already if the reason we're disposing is that
+            // the client disconnected. This is not an error.
+        }
     }
 }

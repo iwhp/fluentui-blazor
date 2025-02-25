@@ -1,6 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 using Microsoft.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components;
 
 namespace FluentUI.Demo.Shared.Components;
 
@@ -12,11 +13,12 @@ public partial class ApiDocumentation
         public MemberTypes MemberType { get; set; } = MemberTypes.Property;
         public string Name { get; set; } = "";
         public string Type { get; set; } = "";
-        public string[] EnumValues { get; set; } = Array.Empty<string>();
-        public string[] Parameters { get; set; } = Array.Empty<string>();
+        public string[] EnumValues { get; set; } = [];
+        public string[] Parameters { get; set; } = [];
         public string? Default { get; set; } = null;
         public string Description { get; set; } = "";
         public bool IsParameter { get; set; }
+        public Icon? Icon { get; set; }
     }
 
     private IEnumerable<MemberDescription>? _allMembers = null;
@@ -37,7 +39,7 @@ public partial class ApiDocumentation
     /// Default for this parameter is 'typeof(string)'
     /// </summary>
     [Parameter]
-    public Type[] InstanceTypes { get; set; } = new[] { typeof(string) };
+    public Type[] InstanceTypes { get; set; } = [typeof(string)];
 
     /// <summary>
     /// Gets or sets the label used for displaying the type parameter.
@@ -68,29 +70,37 @@ public partial class ApiDocumentation
         {
             List<MemberDescription>? members = [];
 
-            object? obj;
-            if (Component.IsGenericType)
+            object? obj = null;
+            var created = false;
+
+            object? GetObjectValue(string propertyName)
             {
-                if (InstanceTypes is null)
+                if (!created)
                 {
-                    throw new ArgumentNullException(nameof(InstanceTypes), "InstanceTypes must be specified when Component is a generic type");
+                    if (Component.IsGenericType)
+                    {
+                        if (InstanceTypes is null)
+                        {
+                            throw new ArgumentNullException(nameof(InstanceTypes), "InstanceTypes must be specified when Component is a generic type");
+                        }
+
+                        // Supply the type to create the generic instance with (needs to be an array)
+                        obj = Activator.CreateInstance(Component.MakeGenericType(InstanceTypes));
+                    }
+                    else
+                    {
+                        obj = Activator.CreateInstance(Component);
+                    }
+                    created = true;
                 }
 
-                // Supply the type to create the generic instance with (needs to be an array)
-                Type[] typeArgs = InstanceTypes;
-                Type constructed = Component.MakeGenericType(typeArgs);
+                return obj?.GetType().GetProperty(propertyName)?.GetValue(obj);
+            };
 
-                obj = Activator.CreateInstance(constructed);
-            }
-            else
-            {
-                obj = Activator.CreateInstance(Component);
-            }
+            var allProperties = Component.GetProperties().Select(i => (MemberInfo)i);
+            var allMethods = Component.GetMethods().Where(i => !i.IsSpecialName).Select(i => (MemberInfo)i);
 
-            IEnumerable<MemberInfo>? allProperties = Component.GetProperties().Select(i => (MemberInfo)i);
-            IEnumerable<MemberInfo>? allMethods = Component.GetMethods().Where(i => !i.IsSpecialName).Select(i => (MemberInfo)i);
-
-            foreach (MemberInfo memberInfo in allProperties.Union(allMethods).OrderBy(m => m.Name))
+            foreach (var memberInfo in allProperties.Union(allMethods).OrderBy(m => m.Name))
             {
                 try
                 {
@@ -103,21 +113,37 @@ public partial class ApiDocumentation
                         {
                             var isParameter = memberInfo.GetCustomAttribute<ParameterAttribute>() != null;
 
-                            Type t = propertyInfo.PropertyType;
+                            var t = propertyInfo.PropertyType;
                             var isEvent = t == typeof(EventCallback) || (t.IsGenericType && t.GetGenericTypeDefinition() == typeof(EventCallback<>));
 
                             // Parameters/properties
                             if (!isEvent)
                             {
+                                Icon? icon = null;
+                                var defaultVaue = "";
+                                if (propertyInfo.PropertyType.IsValueType || propertyInfo.PropertyType == typeof(string))
+                                {
+                                    defaultVaue = GetObjectValue(propertyInfo.Name)?.ToString();
+                                }
+                                else if (propertyInfo.PropertyType == typeof(Icon))
+                                {
+                                    if (GetObjectValue(propertyInfo.Name) is Icon value)
+                                    {
+                                        icon = value;
+                                        defaultVaue = $"{value.Variant}.{value.Size}.{value.Name}";
+                                    }
+                                }
+
                                 members.Add(new MemberDescription()
                                 {
                                     MemberType = MemberTypes.Property,
                                     Name = propertyInfo.Name,
                                     Type = propertyInfo.ToTypeNameString(),
                                     EnumValues = GetEnumValues(propertyInfo),
-                                    Default = propertyInfo.PropertyType.IsValueType ? obj?.GetType().GetProperty(propertyInfo.Name)?.GetValue(obj)?.ToString() : "",
-                                    Description = CodeComments.GetSummary(Component.Name + "." + propertyInfo.Name) ?? CodeComments.GetSummary(Component.BaseType?.Name + "." + propertyInfo.Name),
+                                    Default = defaultVaue,
+                                    Description = GetDescription(Component, propertyInfo),
                                     IsParameter = isParameter,
+                                    Icon = icon
                                 });
                             }
 
@@ -130,7 +156,7 @@ public partial class ApiDocumentation
                                     MemberType = MemberTypes.Event,
                                     Name = propertyInfo.Name,
                                     Type = propertyInfo.ToTypeNameString(),
-                                    Description = CodeComments.GetSummary(Component.Name + "." + propertyInfo.Name) ?? CodeComments.GetSummary(Component.BaseType?.Name + "." + propertyInfo.Name)
+                                    Description = GetDescription(Component, propertyInfo)
                                 });
                             }
                         }
@@ -150,14 +176,14 @@ public partial class ApiDocumentation
                                 Name = methodInfo.Name + genericArguments,
                                 Parameters = methodInfo.GetParameters().Select(i => $"{i.ToTypeNameString()} {i.Name}").ToArray(),
                                 Type = methodInfo.ToTypeNameString(),
-                                Description = CodeComments.GetSummary(Component.Name + "." + methodInfo.Name) ?? CodeComments.GetSummary(Component.BaseType?.Name + "." + methodInfo.Name)
+                                Description = GetDescription(Component, methodInfo)
                             });
                         }
                     }
                 }
                 catch (Exception)
                 {
-                    Console.WriteLine($"ERROR - ApiDocumentation - Cannot found {Component.FullName} -> {memberInfo.Name}");
+                    Console.WriteLine($"[ApiDocumentation] ERROR: Cannot found {Component.FullName} -> {memberInfo.Name}");
                     throw;
                 }
             }
@@ -166,6 +192,58 @@ public partial class ApiDocumentation
         }
 
         return _allMembers.Where(i => i.MemberType == type);
+    }
+
+    /// <summary>
+    /// Gets member description for generic MemberInfo.
+    /// </summary>
+    /// <typeparam name="T"></typeparam>
+    /// <param name="component"></param>
+    /// <param name="memberInfo"></param>
+    /// <returns>member description</returns>
+    private static string GetDescription<T>(Type component, T memberInfo) where T : MemberInfo
+    {
+        return DescriptionFromCodeComments(component, memberInfo.Name);
+    }
+
+    /// <summary>
+    /// Gets description
+    /// </summary>
+    /// <param name="component"></param>
+    /// <param name="methodInfo"></param>
+    /// <returns></returns>
+    /// <remarks>
+    /// see the following about name mangling when dealing with generics
+    /// https://learn.microsoft.com/en-us/dotnet/csharp/language-reference/xmldoc/#id-strings
+    /// </remarks>
+    private static string GetDescription(Type component, MethodInfo methodInfo)
+    {
+        var genericArgumentCount = methodInfo.GetGenericArguments().Length;
+        var mangledName = methodInfo.Name + (genericArgumentCount == 0 ? "" : $"``{genericArgumentCount}");
+
+        var description = DescriptionFromCodeComments(component, mangledName);
+
+        return description;
+    }
+
+    /// <summary>
+    /// Gets member description from source generated class of component
+    /// descriptions. If none found, component base member description
+    /// is returned.
+    /// </summary>
+    /// <param name="component"></param>
+    /// <param name="name">name of property, method, or event</param>
+    /// <returns></returns>
+    private static string DescriptionFromCodeComments(Type component, string name)
+    {
+        var description = CodeComments.GetSummary(component.Name + "." + name);
+
+        if (description == null && component.BaseType != null)
+        {
+            description = DescriptionFromCodeComments(component.BaseType, name);
+        }
+
+        return description ?? string.Empty;
     }
 
     private static string[] GetEnumValues(PropertyInfo? propertyInfo)
@@ -183,6 +261,6 @@ public partial class ApiDocumentation
             }
         }
 
-        return Array.Empty<string>();
+        return [];
     }
 }

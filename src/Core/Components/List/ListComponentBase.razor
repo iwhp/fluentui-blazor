@@ -2,7 +2,7 @@
 @using System.Reflection
 
 @namespace Microsoft.FluentUI.AspNetCore.Components
-@inherits FluentComponentBase
+@inherits FluentInputBase<string?>
 @typeparam TOption
 
 @code
@@ -10,6 +10,11 @@
 
     private void RenderOptions(RenderTreeBuilder __builder)
     {
+
+        if (!string.IsNullOrEmpty(Placeholder) && this is FluentSelect<TOption>)
+        {
+            <FluentOption TOption="TOption" Value="" Style="display:none;" aria-hidden="true">@Placeholder</FluentOption>
+        }
 
         if (Items is null)
         {
@@ -25,7 +30,8 @@
                               Value="@GetOptionValue(item)"
                               Selected="@GetOptionSelected(item)"
                               Disabled="@(GetOptionDisabled(item) ?? false)"
-                              OnSelect="@OnSelectCallback(item)">
+                              OnSelect="@OnSelectCallback(item)"
+                              aria-selected="@(GetOptionSelected(item) ? "true" : "false")">
                     @if (OptionTemplate is not null)
                     {
                         @OptionTemplate(item)
