@@ -1,4 +1,5 @@
 export * from '@fluentui/web-components/dist/web-components'
+export { parseColorHexRGB } from '@microsoft/fast-colors'
 import { SplitPanels } from './SplitPanels'
 import { DesignTheme } from './DesignTheme'
 import { FluentPageScript, onEnhancedLoad } from './FluentPageScript'
@@ -49,6 +50,18 @@ body:has(.prevent-scroll) {
     --presence-unknown: #d13438;
     --highlight-bg: #fff3cd;
 }
+
+fluent-number-field.invalid,
+[role='checkbox'].invalid::part(control),
+[role='combobox'].invalid::part(control),
+fluent-combobox.invalid::part(control),
+fluent-text-area.invalid::part(control),
+fluent-text-field.invalid::part(root),
+.fluent-autocomplete-multiselect.invalid > fluent-text-field::part(root)
+{
+    outline: calc(var(--stroke-width) * 1px)  solid var(--error);
+}
+
 `;
 
 styleSheet.replaceSync(styles);
@@ -97,18 +110,6 @@ export function afterServerStarted(blazor: any) {
 
 export function afterStarted(blazor: Blazor, mode: string) {
 
-  blazor.registerCustomEventType('radiogroupclick', {
-    browserEventName: 'click',
-    createEventArgs: event => {
-      if (event.target!._readOnly || event.target!._disabled) {
-        return null;
-      }
-      return {
-        value: event.target!.value
-      };
-    }
-  });
-
   blazor.registerCustomEventType('checkedchange', {
     browserEventName: 'change',
     createEventArgs: event => {
@@ -137,6 +138,15 @@ export function afterStarted(blazor: Blazor, mode: string) {
     }
   });
 
+  blazor.registerCustomEventType('sliderchange', {
+    browserEventName: 'change',
+    createEventArgs: event => {
+      return {
+        value: event.target!.currentValue
+      };
+    }
+  });
+
   blazor.registerCustomEventType('accordionchange', {
     browserEventName: 'change',
     createEventArgs: event => {
@@ -161,6 +171,19 @@ export function afterStarted(blazor: Blazor, mode: string) {
       return null;
     }
   });
+
+  blazor.registerCustomEventType('radiogroupchange', {
+    browserEventName: 'change',
+    createEventArgs: event => {
+      if (event.target!.localName == 'fluent-radio-group') {
+        return {
+          value: event.target.value,
+        }
+      };
+      return null;
+    }
+  });
+
   blazor.registerCustomEventType('selectedchange', {
     browserEventName: 'selected-change',
     createEventArgs: event => {
@@ -246,24 +269,6 @@ export function afterStarted(blazor: Blazor, mode: string) {
     }
   });
 
-  blazor.registerCustomEventType('cellfocus', {
-    browserEventName: 'cell-focused',
-    createEventArgs: event => {
-      return {
-        cellId: event.detail.attributes['cell-id'].value
-      };
-    }
-  });
-
-  blazor.registerCustomEventType('rowfocus', {
-    browserEventName: 'row-focused',
-    createEventArgs: event => {
-      return {
-        rowId: event.detail.attributes['row-id'].value
-      };
-    }
-  });
-
   blazor.registerCustomEventType('splitterresized', {
     browserEventName: 'splitterresized',
     createEventArgs: event => {
@@ -273,11 +278,30 @@ export function afterStarted(blazor: Blazor, mode: string) {
       }
     }
   });
+
   blazor.registerCustomEventType('splittercollapsed', {
     browserEventName: 'splittercollapsed',
     createEventArgs: event => {
       return {
         collapsed: event.detail.collapsed
+      }
+    }
+  });
+
+  blazor.registerCustomEventType('controlinput', {
+    browserEventName: 'input',
+    createEventArgs: event => {
+      return {
+        value: event.target.control.value
+      }
+    }
+  });
+
+  blazor.registerCustomEventType('comboboxchange', {
+    browserEventName: 'change',
+    createEventArgs: event => {
+      return {
+        value: event.target._selectedOptions[0] ? event.target._selectedOptions[0].value : event.target.value 
       }
     }
   });
@@ -292,7 +316,6 @@ export function afterStarted(blazor: Blazor, mode: string) {
       return parseFloat(luminance) < 0.5;
     }
   }
-
 
   if (typeof blazor.addEventListener === 'function' && mode === 'web') {
     customElements.define('fluent-page-script', FluentPageScript);

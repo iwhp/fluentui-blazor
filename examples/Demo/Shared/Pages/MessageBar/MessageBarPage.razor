@@ -2,34 +2,55 @@
 
 @using FluentUI.Demo.Shared.Pages.MessageBar.Examples
 
+<PageTitle>@App.PageTitle("MessageBar")</PageTitle>
+
 <h1>MessageBar</h1>
 
 <strong>IMPORTANT!!</strong>
 <p>
     MessageBars are rendered by the <code>&lt;FluentMessageBarProvider /&gt;</code>. This component needs to be added to the layout of your application/site.
-    For a message bar that needs to be shown at the top of the screen, you typically do this in the <code>MainLayout.razor</code> file at the location in 
+    For a message bar that needs to be shown at the top of the screen, you typically do this in the <code>MainLayout.razor</code> file at the location in
     the HTML structure where you want the message bars to appear  of the <code>&lt;main&gt;</code> section like this:
 </p>
 <p>
     <strong>
         For the MessageBars to work properly, the <code>&lt;FluentMessageBarProvider/&gt;</code> needs interactivity! If you are using "per page" interactivity, make sure to add a <code>@@rendermode</code> to
-        either the provider itself of the component the provider is placed in.
+        either the provider itself or the component the provider is placed in.
     </strong>
 </p>
-<CodeSnippet>
-    &lt;main&gt;
-        &lt;nav&gt;
-        :
-        &lt;/nav&gt;
-        &lt;div class=&quot;content&quot;&gt;
-            &lt;article id=&quot;article&quot;&gt;
-            &lt;FluentMessageBarProvider Section="MESSAGES_TOP"/&gt;
-                @@Body
-            &lt;/article&gt;
-        &lt;/div&gt;
-    &lt;/main&gt;
+
+<CodeSnippet Language="razor">
+    @(
+@"<main>
+    <nav>
+        <!-- -->
+    </nav>
+    <div class=""content"">
+        <article id=""article"">
+            <FluentMessageBarProvider Section=""MESSAGES_TOP""/>
+            @Body
+        </article>
+    </div>
+</main>"
+    )
 </CodeSnippet>
 
+<h2 id="sections">Sections</h2>
+<p>
+    You can use multiple message bar providers in a single page/app. In the example below you can add a message bar on the top of the window, but also
+    in the notification center or in a dialog. An area to display messages in is called a <code>Section</code>.
+
+    You can specify in wich <code>Section</code> you want your message to appear in through the <code>MessageOptions</code>.
+
+</p>
+
+<h2 id="clear">Clear message bars on navigation</h2>
+<p>
+    By default, message bars will not be removed when navigating to another page. This can be changed by setting the <code>ClearAfterNavigation</code>
+    parameter to true on a <code>FluentMenuProvider</code>. When using multiple providers (see Sections above), the parameter needs to be set for each
+    provider individually.
+    You can also set the behavior on a per message basis by using the same parameter of the <code>MessageOptions</code> class.
+</p>
 
 <h2 id="example">Examples</h2>
 
@@ -40,7 +61,7 @@
         If you click on "Add in a dialog" multiple times, you will see that only one message is displayed.
         Once you dismiss that one, the next one will be displayed.
     </p>
-    <p>This is the advised way to use MessageBars </p>
+    <p>Using the <code>MessageService</code> is the advised way to use message bars.</p>
 </DemoSection>
 
 <DemoSection Title="Timed Messages" Component="typeof(MessageBarTimed)">
@@ -57,7 +78,7 @@
 
 <DemoSection Title="Simple messages" Component="typeof(MessageBarSimple)">
     <p>
-        This example show the different intents that can be shown in a MessageBar. 
+        This example show the different intents that can be shown in a MessageBar.
         This example does <b>not</b> use the <code>MessageBarService</code>.
     </p>
 </DemoSection>
@@ -96,3 +117,5 @@
 <ApiDocumentation Component="typeof(MessageService)" />
 
 <ApiDocumentation Component="typeof(Message)" />
+
+<ApiDocumentation Component="typeof(MessageOptions)" />

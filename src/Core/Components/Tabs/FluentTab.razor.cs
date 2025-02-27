@@ -1,4 +1,9 @@
+// ------------------------------------------------------------------------
+// MIT License - Copyright (c) Microsoft Corporation. All rights reserved.
+// ------------------------------------------------------------------------
+
 using Microsoft.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components.Extensions;
 using Microsoft.FluentUI.AspNetCore.Components.Utilities;
 using Microsoft.JSInterop;
 
@@ -6,6 +11,7 @@ namespace Microsoft.FluentUI.AspNetCore.Components;
 
 public partial class FluentTab : FluentComponentBase
 {
+    private const string JAVASCRIPT_FILE = "./_content/Microsoft.FluentUI.AspNetCore.Components/Components/Tabs/FluentTab.razor.js";
     private DotNetObjectReference<FluentTab>? _dotNetHelper = null;
     private IJSObjectReference _jsModule = default!;
 
@@ -15,8 +21,13 @@ public partial class FluentTab : FluentComponentBase
 
     /// <summary />
     protected string? StyleValue => new StyleBuilder(Style)
-        .AddStyle("height", $"calc({Owner?.Height} - 40px); overflow-y: auto", () => !string.IsNullOrEmpty(Owner?.Height))
+        .AddStyle("height", "100%", () => !string.IsNullOrEmpty(Owner?.Height))
+        .AddStyle("overflow-y", "auto", () => !string.IsNullOrEmpty(Owner?.Height))
         .Build();
+
+    /// <summary />
+    [Inject]
+    private LibraryConfiguration LibraryConfiguration { get; set; } = default!;
 
     /// <summary />
     [Inject]
@@ -123,7 +134,7 @@ public partial class FluentTab : FluentComponentBase
 
     protected override void OnInitialized()
     {
-        Index = Owner!.RegisterTab(this);
+        Index = Owner.RegisterTab(this);
     }
 
     /// <summary />
@@ -131,8 +142,7 @@ public partial class FluentTab : FluentComponentBase
     {
         if (firstRender)
         {
-            _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import",
-                "./_content/Microsoft.FluentUI.AspNetCore.Components/Components/Tabs/FluentTab.razor.js");
+            _jsModule = await JSRuntime.InvokeAsync<IJSObjectReference>("import", JAVASCRIPT_FILE.FormatCollocatedUrl(LibraryConfiguration));
             _dotNetHelper = DotNetObjectReference.Create(this);
 
             await _jsModule.InvokeVoidAsync("TabEditable_Changed", _dotNetHelper, $"#{Id} span[contenteditable='true']", Id);
@@ -142,7 +152,11 @@ public partial class FluentTab : FluentComponentBase
     /// <summary />
     protected virtual Task CloseClickedAsync()
     {
-        return Owner!.UnregisterTabAsync(this);
+        if (Id is null)
+        {
+            return Task.CompletedTask;
+        }
+        return Owner.UnregisterTabAsync(Id);
     }
 
     /// <summary />

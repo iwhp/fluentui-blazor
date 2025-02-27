@@ -12,6 +12,7 @@ public partial class IconExplorer
     private readonly IconSearchCriteria Criteria = new();
     private IconInfo[] IconsFound = Array.Empty<IconInfo>();
     private PaginationState PaginationState = new() { ItemsPerPage = 4 * 12 };
+    private string _searchResultMessage = "Start search...";
 
     [Parameter]
     public string Title { get; set; } = "FluentUI Blazor - Icon Explorers";
@@ -42,14 +43,19 @@ public partial class IconExplorer
         }
     }
 
-    private async Task StartNewSearchAsync()
+    private async Task StartNewSearchAsync(string property)
     {
+        if (property == nameof(Criteria.Variant) && Criteria.Variant == IconVariant.Light && Criteria.Size != 32)
+        {
+            Criteria.Size = 32;
+        }
+
         SearchInProgress = true;
         await Task.Delay(1); // Display spinner
 
         IconsFound =
         [
-            .. Icons.AllIcons
+            .. IconsExtensions.AllIcons
                     .Where(i => i.Variant == Criteria.Variant
                              && (Criteria.Size > 0 ? (int)i.Size == Criteria.Size : true)
                              && (string.IsNullOrWhiteSpace(Criteria.SearchTerm) ? true : i.Name.Contains(Criteria.SearchTerm, StringComparison.InvariantCultureIgnoreCase)))
@@ -58,6 +64,8 @@ public partial class IconExplorer
         ];
 
         await PaginationState.SetTotalItemCountAsync(IconsFound.Length);
+
+        _searchResultMessage = IconsFound.Length == 0 ? "No icons found." : string.Empty;
 
         SearchInProgress = false;
     }
@@ -71,7 +79,7 @@ public partial class IconExplorer
     {
         get
         {
-            var sizes = Enum.GetValues<IconSize>().Select(i => (int)i).ToList();
+            var sizes = Enum.GetValues<IconSize>().Where(i => i > 0).Select(i => (int)i).ToList();
             var empty = new int[] { 0 };
             return empty.Concat(sizes);
         }

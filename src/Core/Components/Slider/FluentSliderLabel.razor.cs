@@ -1,5 +1,6 @@
 using System.Globalization;
 using Microsoft.AspNetCore.Components;
+using Microsoft.FluentUI.AspNetCore.Components.Extensions;
 using Microsoft.JSInterop;
 
 namespace Microsoft.FluentUI.AspNetCore.Components;
@@ -7,6 +8,7 @@ namespace Microsoft.FluentUI.AspNetCore.Components;
 public partial class FluentSliderLabel<TValue> : FluentComponentBase, IAsyncDisposable
 {
     private const string JAVASCRIPT_FILE = "./_content/Microsoft.FluentUI.AspNetCore.Components/Components/Slider/FluentSliderLabel.razor.js";
+    private bool? _disabled;
 
     public FluentSliderLabel()
     {
@@ -15,10 +17,14 @@ public partial class FluentSliderLabel<TValue> : FluentComponentBase, IAsyncDisp
 
     /// <summary />
     [Inject]
+    private LibraryConfiguration LibraryConfiguration { get; set; } = default!;
+
+    /// <summary />
+    [Inject]
     private IJSRuntime JSRuntime { get; set; } = default!;
 
     /// <summary />
-    private IJSObjectReference? Module { get; set; }
+    private IJSObjectReference? _jsModule { get; set; }
 
     /// <summary>
     /// Gets or sets the value for this slider position.
@@ -33,10 +39,17 @@ public partial class FluentSliderLabel<TValue> : FluentComponentBase, IAsyncDisp
     public bool? HideMark { get; set; }
 
     /// <summary>
-    /// Gets or sets disabled state of the label. This is generally controlled by the parent.
+    /// Gets the disabled state of the label. This is controlled by the owning <see cref="FluentSlider{TValue}"/>.
     /// </summary>
     [Parameter]
-    public bool? Disabled { get; set; }
+    public bool? Disabled
+    {
+        get => Owner is null ? _disabled : Owner.Disabled;
+        set => _disabled = Owner is null ? value : Owner.Disabled;
+    }
+
+    [CascadingParameter]
+    internal FluentSlider<TValue> Owner { get; set; } = default!;
 
     /// <summary>
     /// Gets or sets the content to be rendered inside the component.
@@ -65,17 +78,26 @@ public partial class FluentSliderLabel<TValue> : FluentComponentBase, IAsyncDisp
     {
         if (firstRender)
         {
-            Module ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", JAVASCRIPT_FILE);
-            await Module.InvokeVoidAsync("updateSliderLabel", Id);
+            _jsModule ??= await JSRuntime.InvokeAsync<IJSObjectReference>("import", JAVASCRIPT_FILE.FormatCollocatedUrl(LibraryConfiguration));
+            await _jsModule.InvokeVoidAsync("updateSliderLabel", Id);
         }
     }
 
-    public ValueTask DisposeAsync()
+    public async ValueTask DisposeAsync()
     {
-        if (Module is not null)
+        try
         {
-            return Module.DisposeAsync();
+            if (_jsModule is not null)
+            {
+                await _jsModule.DisposeAsync();
+            }
         }
-        return ValueTask.CompletedTask;
+        catch (Exception ex) when (ex is JSDisconnectedException ||
+                                   ex is OperationCanceledException)
+        {
+            // The JSRuntime side may routinely be gone already if the reason we're disposing is that
+            // the client disconnected. This is not an error.
+        }
+
     }
 }
